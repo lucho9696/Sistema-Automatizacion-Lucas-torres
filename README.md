@@ -4,9 +4,10 @@ Sistema web privado para gestionar compras/importación, inventario serializado,
 
 - Diagnóstico y plan por hitos: [`docs/plan-por-hitos.md`](docs/plan-por-hitos.md)
 - Decisiones técnicas: [`docs/adr/0001-arquitectura-hito-1.md`](docs/adr/0001-arquitectura-hito-1.md)
+- CRM, radar e integraciones (Hito 2): [`docs/adr/0002-crm-y-radar-hito-2.md`](docs/adr/0002-crm-y-radar-hito-2.md)
 - Escenario de conciliación (datos de prueba y resultados esperados): [`docs/hito-1-escenario-conciliacion.md`](docs/hito-1-escenario-conciliacion.md)
 
-**Estado:** Hito 1 (núcleo operativo). No hay integraciones externas conectadas (WhatsApp, Meta Ads, Mercado Libre, Google Places): llegan en los hitos 2–4 y el sistema funciona completo sin ellas.
+**Estado:** Hito 2 (núcleo operativo + CRM de prospectos + radar de tendencias). Mercado Libre Trends y Google Places tienen adaptador listo pero **no están conectados**: funcionan en modo demo señalizado hasta que el dueño cargue credenciales (pasos abajo). WhatsApp y Meta Ads llegan en los hitos 3–4. El sistema funciona completo sin ninguna integración.
 
 ## Stack
 
@@ -19,6 +20,10 @@ app/Domain/Purchasing  CostAllocator (costo puesto en destino), PurchaseService
 app/Domain/Sales       SaleService (ciclo de vida), PaymentService (cobros)
 app/Domain/Finance     CashService (caja por moneda), ExpenseService
 app/Domain/Reports     DashboardService
+app/Domain/Crm         LeadService (estados, consentimiento, fusión, supresión de datos), LeadDeduplicator, LeadCsvImporter, Suppression
+app/Domain/Radar       TrendService, CandidateScorer, DemoTrendProvider, MercadoLibreTrendsProvider, MercadoLibreAuth
+app/Domain/Prospecting PlacesSearch (Google Places, apagado por defecto)
+app/Domain/Integrations SyncRunRecorder, IntegrationException
 app/Support            Money (decimal exacto, brick/math), Phone, BusinessDate
 resources/js           SPA Vue 3 + TS
 ```
@@ -50,7 +55,7 @@ php artisan db:seed --class=DemoSeeder     # usuarios demo@example.com / vendedo
 ## Validación
 
 ```bash
-php artisan test          # 36 pruebas contra PostgreSQL (base ventas_test, ver phpunit.xml)
+php artisan test          # 51 pruebas contra PostgreSQL (base ventas_test, ver phpunit.xml)
 vendor/bin/pint --test    # estilo PHP
 npm run typecheck         # vue-tsc
 npm run build             # build de producción del frontend
@@ -69,7 +74,33 @@ CI (`.github/workflows/tests.yml`) ejecuta lo mismo con un servicio PostgreSQL 1
 | `PURCHASE_ALLOCATION_METHOD` | `value` | `value` (proporcional al valor) o `quantity` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | vacío | Opcional, solo para `app:create-admin` no interactivo. No commitear. |
 
-Nunca commitear `.env`. No hay secretos de terceros en este hito.
+Hito 2 (todas opcionales; sin ellas el radar corre en demo y Places queda apagado):
+
+| Variable | Default | Uso |
+|---|---|---|
+| `TRENDS_PROVIDER` | `demo` | `demo` o `mercadolibre` |
+| `TRENDS_SITE` | `MLA` | Sitio de Mercado Libre |
+| `ML_CLIENT_ID` / `ML_CLIENT_SECRET` | vacío | App de developers.mercadolibre.com.ar. **Secreto** |
+| `ML_REDIRECT_URI` | vacío | `https://<dominio>/integraciones/mercadolibre/callback` |
+| `ML_API_BASE_URL` / `ML_AUTH_URL` | API y auth de MLA | Solo si cambian |
+| `GOOGLE_PLACES_MODE` | `off` | `off`, `demo` o `live` (pago) |
+| `GOOGLE_PLACES_API_KEY` | vacío | **Secreto**; restringir por IP y a Places API (New) |
+| `GOOGLE_PLACES_FIELD_MASK` | id, nombre, dirección, teléfono, web, link Maps | Define el costo por solicitud |
+| `GOOGLE_PLACES_MONTHLY_REQUEST_LIMIT` | `0` | Tope mensual; 0 bloquea |
+
+Nunca commitear `.env`. Los tokens OAuth de Mercado Libre se guardan cifrados en la base, no en `.env`.
+
+## Activar Mercado Libre Trends
+
+1. En https://developers.mercadolibre.com.ar crear una aplicación con la cuenta del negocio. URL de redirección: `https://<tu-dominio>/integraciones/mercadolibre/callback` (HTTPS obligatorio).
+2. Cargar `ML_CLIENT_ID`, `ML_CLIENT_SECRET`, `ML_REDIRECT_URI` en `.env` y `php artisan config:clear`.
+3. Entrar como admin a **Integraciones → Conectar Mercado Libre** y autorizar. Sin navegador: `php artisan app:ml-connect` muestra la URL y luego `php artisan app:ml-connect <code>`.
+4. Poner `TRENDS_PROVIDER=mercadolibre` y probar con **Radar → Sincronizar** o `php artisan app:trends-sync`. El resultado (o el error, sin secretos) queda en Integraciones → últimas corridas.
+5. Para la corrida semanal (lunes 08:00) agregar el cron `* * * * * cd /ruta && php artisan schedule:run`.
+
+## Activar Google Places (opcional, genera cargos)
+
+Requiere aprobación del dueño: proyecto en Google Cloud con facturación, Places API (New) habilitada, clave restringida y alerta de presupuesto. Luego `GOOGLE_PLACES_MODE=live`, `GOOGLE_PLACES_API_KEY` y `GOOGLE_PLACES_MONTHLY_REQUEST_LIMIT` (p. ej. 200). Antes, revisar los términos vigentes de Google Maps Platform sobre almacenamiento de datos (ver ADR 0002). Para probar la pantalla sin costo: `GOOGLE_PLACES_MODE=demo`.
 
 ## Reglas de negocio implementadas
 
@@ -97,11 +128,14 @@ Todas bajo `/api`, autenticadas con sesión Sanctum (SPA) o token Bearer.
 | Ventas | `GET/POST sales` (`confirm: true` confirma en el acto), `GET sales/{id}`, `POST sales/{id}/confirm|deliver|cancel|return` |
 | Cobros | `POST sales/{id}/payments`, `POST payments/{id}/void` |
 | Finanzas | `GET dashboard?from&to`, `GET expense-categories`, `GET/POST expenses`, `POST expenses/{id}/pay|void`, `GET/POST cash`, `GET audit-logs` |
+| Prospectos | `GET/POST leads`, `GET leads/pipeline`, `GET/PATCH leads/{id}`, `POST leads/{id}/status|activities|consents|merge|convert|erase`, `POST leads/import` (`dry_run`), `GET leads/outreach-list?channel=&format=csv`, `POST suppressions` |
+| Radar | `GET trends/candidates`, `GET/PATCH trends/candidates/{id}`, `POST trends/candidates/{id}/suppliers`, `POST trends/signals`, `POST trends/sync` |
+| Integraciones | `GET integrations/status`, `GET integrations/mercadolibre/authorize`, `GET prospecting/places/status`, `POST prospecting/places/search` |
 | CSV | `GET exports/{ventas|cobros|gastos|caja|stock}?from&to` |
 
-## Limitaciones del Hito 1
+## Limitaciones
 
-Ver la sección "Consecuencias y límites" del ADR 0001: recepción de compras en un paso, devolución total, sin cuentas por pagar a proveedores, sin vencimiento automático de reservas, numeración con posibles saltos, normalización de teléfonos básica. Ninguna API externa conectada.
+Ver la sección "Consecuencias y límites" del ADR 0001: recepción de compras en un paso, devolución total, sin cuentas por pagar a proveedores, sin vencimiento automático de reservas, numeración con posibles saltos, sin cuentas por pagar a proveedores. Hito 2: ver "Límites conocidos" del ADR 0002 (CSV sin campos multilínea, pipeline sin arrastrar y soltar, fusión manual, Mercado Libre probado solo con respuestas simuladas).
 
 ## Despliegue (resumen)
 

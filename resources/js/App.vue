@@ -12,8 +12,11 @@ const links = computed(() =>
         { to: '/catalogo', label: 'Catálogo', ability: 'catalog.manage' },
         { to: '/compras', label: 'Compras', ability: 'purchases.manage' },
         { to: '/clientes', label: 'Clientes', ability: 'customers.manage' },
+        { to: '/prospectos', label: 'Prospectos', ability: 'crm.manage' },
+        { to: '/radar', label: 'Radar', ability: 'radar.view' },
         { to: '/gastos', label: 'Gastos', ability: 'finance.manage' },
         { to: '/caja', label: 'Caja', ability: 'finance.manage' },
+        { to: '/integraciones', label: 'Integraciones', ability: 'radar.view' },
     ].filter((l) => can(l.ability)),
 );
 

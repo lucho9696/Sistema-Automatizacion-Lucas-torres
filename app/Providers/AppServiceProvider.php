@@ -32,6 +32,13 @@ class AppServiceProvider extends ServiceProvider
         'finance.manage' => [Role::Admin],
         'reports.view' => [Role::Admin, Role::Analista],
         'audit.view' => [Role::Admin],
+        'crm.manage' => [Role::Admin, Role::Vendedor, Role::Analista],
+        'crm.erase' => [Role::Admin],
+        'crm.suppress' => [Role::Admin],
+        'radar.view' => [Role::Admin, Role::Vendedor, Role::Analista],
+        'radar.manage' => [Role::Admin, Role::Analista],
+        'integrations.manage' => [Role::Admin],
+        'prospecting.places' => [Role::Admin],
     ];
 
     public function register(): void

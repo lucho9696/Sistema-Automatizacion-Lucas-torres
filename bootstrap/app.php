@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Integrations\IntegrationException;
 use App\Domain\Shared\BusinessRuleException;
 use App\Http\Middleware\EnsureIdempotency;
 use Illuminate\Foundation\Application;
@@ -24,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
                 'message' => $e->getMessage(),
                 'errors' => [($e->field ?? 'general') => [$e->getMessage()]],
             ], 422);
+        });
+        $exceptions->render(function (IntegrationException $e, Request $request) {
+            return response()->json(['message' => $e->getMessage(), 'errors' => ['integration' => [$e->getMessage()]]], 422);
         });
         // Nunca exponer trazas en respuestas JSON (APP_DEBUG=false en producción).
         $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/*') || $request->expectsJson());

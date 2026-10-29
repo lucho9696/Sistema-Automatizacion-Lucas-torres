@@ -2,11 +2,14 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CatalogController;
+use App\Http\Controllers\Api\CrmController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\FinanceController;
+use App\Http\Controllers\Api\IntegrationController;
 use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\PurchaseController;
+use App\Http\Controllers\Api\RadarController;
 use App\Http\Controllers\Api\SaleController;
 use Illuminate\Support\Facades\Route;
 
@@ -66,6 +69,36 @@ Route::middleware(['auth:sanctum', 'throttle:120,1'])->group(function () {
     Route::get('/cash', [FinanceController::class, 'cashMovements']);
     Route::post('/cash', [FinanceController::class, 'storeCashMovement'])->middleware('idempotent');
     Route::get('/audit-logs', [FinanceController::class, 'auditLogs']);
+
+    // CRM de prospectos
+    Route::get('/leads', [CrmController::class, 'index']);
+    Route::post('/leads', [CrmController::class, 'store'])->middleware('idempotent');
+    Route::get('/leads/pipeline', [CrmController::class, 'pipeline']);
+    Route::get('/leads/outreach-list', [CrmController::class, 'outreachList']);
+    Route::post('/leads/import', [CrmController::class, 'import'])->middleware('throttle:10,1');
+    Route::get('/leads/{lead}', [CrmController::class, 'show']);
+    Route::patch('/leads/{lead}', [CrmController::class, 'update']);
+    Route::post('/leads/{lead}/status', [CrmController::class, 'changeStatus']);
+    Route::post('/leads/{lead}/activities', [CrmController::class, 'storeActivity'])->middleware('idempotent');
+    Route::post('/leads/{lead}/consents', [CrmController::class, 'storeConsent'])->middleware('idempotent');
+    Route::post('/leads/{lead}/merge', [CrmController::class, 'merge']);
+    Route::post('/leads/{lead}/convert', [CrmController::class, 'convert'])->middleware('idempotent');
+    Route::post('/leads/{lead}/erase', [CrmController::class, 'erase']);
+    Route::post('/suppressions', [CrmController::class, 'suppress']);
+    Route::get('/prospecting/places/status', [CrmController::class, 'placesStatus']);
+    Route::post('/prospecting/places/search', [CrmController::class, 'placesSearch'])->middleware('throttle:10,1');
+
+    // Radar de productos
+    Route::get('/trends/candidates', [RadarController::class, 'index']);
+    Route::get('/trends/candidates/{candidate}', [RadarController::class, 'show']);
+    Route::patch('/trends/candidates/{candidate}', [RadarController::class, 'update']);
+    Route::post('/trends/candidates/{candidate}/suppliers', [RadarController::class, 'storeSupplier'])->middleware('idempotent');
+    Route::post('/trends/signals', [RadarController::class, 'storeSignal'])->middleware('idempotent');
+    Route::post('/trends/sync', [RadarController::class, 'sync'])->middleware('throttle:6,1');
+
+    // Integraciones
+    Route::get('/integrations/status', [IntegrationController::class, 'status']);
+    Route::get('/integrations/mercadolibre/authorize', [IntegrationController::class, 'mercadolibreAuthorize']);
 
     Route::get('/exports/{dataset}', [ExportController::class, 'export'])
         ->whereIn('dataset', ['ventas', 'cobros', 'gastos', 'caja', 'stock']);

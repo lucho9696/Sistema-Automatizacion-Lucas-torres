@@ -14,6 +14,11 @@ const routes = [
     { path: '/clientes', component: () => import('./views/CustomersView.vue'), meta: { ability: 'customers.manage' } },
     { path: '/gastos', component: () => import('./views/ExpensesView.vue'), meta: { ability: 'finance.manage' } },
     { path: '/caja', component: () => import('./views/CashView.vue'), meta: { ability: 'finance.manage' } },
+    { path: '/prospectos', component: () => import('./views/LeadsView.vue'), meta: { ability: 'crm.manage' } },
+    { path: '/prospectos/:id', component: () => import('./views/LeadDetailView.vue'), meta: { ability: 'crm.manage' }, props: true },
+    { path: '/radar', component: () => import('./views/RadarView.vue'), meta: { ability: 'radar.view' } },
+    { path: '/radar/:id', component: () => import('./views/RadarDetailView.vue'), meta: { ability: 'radar.view' }, props: true },
+    { path: '/integraciones', component: () => import('./views/IntegrationsView.vue'), meta: { ability: 'radar.view' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
 ];
 
