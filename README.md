@@ -57,7 +57,7 @@ php artisan db:seed --class=DemoSeeder     # usuarios demo@example.com / vendedo
 ## Validación
 
 ```bash
-php artisan test          # 66 pruebas contra PostgreSQL (base ventas_test, ver phpunit.xml)
+php artisan test          # 70 pruebas contra PostgreSQL (base ventas_test, ver phpunit.xml)
 vendor/bin/pint --test    # estilo PHP
 npm run typecheck         # vue-tsc
 npm run build             # build de producción del frontend
@@ -121,6 +121,8 @@ En modo simulado, **WhatsApp → Simular mensaje de un cliente** (admin) pasa el
 
 Requiere aprobación del dueño: proyecto en Google Cloud con facturación, Places API (New) habilitada, clave restringida y alerta de presupuesto. Luego `GOOGLE_PLACES_MODE=live`, `GOOGLE_PLACES_API_KEY` y `GOOGLE_PLACES_MONTHLY_REQUEST_LIMIT` (p. ej. 200). Antes, revisar los términos vigentes de Google Maps Platform sobre almacenamiento de datos (ver ADR 0002). Para probar la pantalla sin costo: `GOOGLE_PLACES_MODE=demo`.
 
+**Búsquedas automáticas:** en Integraciones → Búsquedas automáticas se cargan rubro, ciudad y frecuencia. El cron diario (`app:prospecting-run`, 07:00) las corre y los comercios nuevos aparecen en Prospectos como "por verificar". Con 10 búsquedas semanales se usan unas 40 consultas por mes; ajustá `GOOGLE_PLACES_MONTHLY_REQUEST_LIMIT` en consecuencia.
+
 ## Reglas de negocio implementadas
 
 - **Ventas ≠ cobros ≠ ganancia ≠ caja.** El dashboard muestra por separado ventas confirmadas, cobros, COGS, ganancia bruta, gastos operativos, resultado operativo estimado, cuentas por cobrar, caja por moneda e inventario a costo, con nota de cobertura.
@@ -150,7 +152,7 @@ Todas bajo `/api`, autenticadas con sesión Sanctum (SPA) o token Bearer.
 | Prospectos | `GET/POST leads`, `GET leads/pipeline`, `GET/PATCH leads/{id}`, `POST leads/{id}/status|activities|consents|merge|convert|erase`, `POST leads/import` (`dry_run`), `GET leads/outreach-list?channel=&format=csv`, `POST suppressions` |
 | Radar | `GET trends/candidates`, `GET/PATCH trends/candidates/{id}`, `POST trends/candidates/{id}/suppliers`, `POST trends/signals`, `POST trends/sync` |
 | WhatsApp | `GET/POST webhooks/whatsapp` (público, firmado), `GET whatsapp/status`, `GET whatsapp/conversations[/{id}]`, `POST whatsapp/conversations/{id}/messages|template|handoff|resume|attended`, `POST whatsapp/quotes/{id}/order|reject`, `GET/POST/PATCH whatsapp/faqs`, `POST whatsapp/simulate` |
-| Integraciones | `GET integrations/status`, `GET integrations/mercadolibre/authorize`, `GET prospecting/places/status`, `POST prospecting/places/search` |
+| Integraciones | `GET integrations/status`, `GET integrations/mercadolibre/authorize`, `GET prospecting/places/status`, `POST prospecting/places/search`, `GET/POST prospecting/searches`, `PATCH prospecting/searches/{id}`, `POST prospecting/searches/{id}/run` |
 | CSV | `GET exports/{ventas|cobros|gastos|caja|stock}?from&to` |
 
 ## Limitaciones

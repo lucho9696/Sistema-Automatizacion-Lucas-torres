@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\FinanceController;
 use App\Http\Controllers\Api\IntegrationController;
 use App\Http\Controllers\Api\InventoryController;
+use App\Http\Controllers\Api\ProspectingSearchController;
 use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\RadarController;
 use App\Http\Controllers\Api\SaleController;
@@ -93,6 +94,10 @@ Route::middleware(['auth:sanctum', 'throttle:120,1'])->group(function () {
     Route::post('/suppressions', [CrmController::class, 'suppress']);
     Route::get('/prospecting/places/status', [CrmController::class, 'placesStatus']);
     Route::post('/prospecting/places/search', [CrmController::class, 'placesSearch'])->middleware('throttle:10,1');
+    Route::get('/prospecting/searches', [ProspectingSearchController::class, 'index']);
+    Route::post('/prospecting/searches', [ProspectingSearchController::class, 'store']);
+    Route::patch('/prospecting/searches/{search}', [ProspectingSearchController::class, 'update']);
+    Route::post('/prospecting/searches/{search}/run', [ProspectingSearchController::class, 'run'])->middleware('throttle:10,1');
 
     // Radar de productos
     Route::get('/trends/candidates', [RadarController::class, 'index']);

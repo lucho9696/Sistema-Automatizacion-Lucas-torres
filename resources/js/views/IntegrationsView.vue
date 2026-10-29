@@ -21,10 +21,38 @@ const error = ref<string | null>(null);
 const query = ref('');
 const places = ref<{ mode: string; results: Place[] } | null>(null);
 
+interface AutoSearch {
+    id: number; query: string; city: string; province: string | null; frequency_days: number; is_active: boolean;
+    next_run_at: string | null; last_run_at: string | null; last_mode: string | null; last_found: number; last_created: number;
+    last_skipped: number; last_error: string | null; total_created: number; last_preview: { name: string; outcome: string }[] | null;
+}
+const autoSearches = ref<AutoSearch[]>([]);
+const autoForm = ref({ query: 'venta de celulares', city: '', province: '', frequency_days: 7 });
+const openPreview = ref<number | null>(null);
+
+async function loadAuto() {
+    if (can('prospecting.places')) autoSearches.value = (await http.get<AutoSearch[]>('/api/prospecting/searches')).data;
+}
+async function autoAct(fn: () => Promise<unknown>) {
+    error.value = null;
+    try {
+        await fn();
+        await Promise.all([loadAuto(), load()]);
+    } catch (e) {
+        error.value = errorMessage(e);
+    }
+}
+const addAuto = () => autoAct(async () => {
+    await http.post('/api/prospecting/searches', { ...autoForm.value, province: autoForm.value.province || undefined });
+    autoForm.value.city = '';
+});
+const runAuto = (a: AutoSearch) => autoAct(() => http.post(`/api/prospecting/searches/${a.id}/run`).then(() => { openPreview.value = a.id; }));
+const toggleAuto = (a: AutoSearch) => autoAct(() => http.patch(`/api/prospecting/searches/${a.id}`, { is_active: !a.is_active }));
+
 async function load() {
     s.value = (await http.get<Status>('/api/integrations/status')).data;
 }
-onMounted(load);
+onMounted(() => Promise.all([load(), loadAuto()]));
 
 async function connectMl() {
     try {
@@ -81,7 +109,7 @@ async function addLead(p: Place) {
                 <h2 class="font-semibold">Google Places (opcional, pago)</h2>
                 <p>Modo: <span class="badge">{{ s.google_places.mode }}</span> · Consultas este mes: {{ s.google_places.used_this_month }} / {{ s.google_places.monthly_limit || 'sin tope (bloqueado)' }}</p>
                 <p v-if="s.google_places.missing.length" class="text-red-800">Faltan: {{ s.google_places.missing.join(', ') }}</p>
-                <p class="text-xs text-slate-500">Campos pedidos (FieldMask): {{ s.google_places.field_mask }}</p>
+                <p class="break-all text-xs text-slate-500">Campos pedidos (FieldMask): {{ s.google_places.field_mask }}</p>
             </div>
             <div class="card space-y-1 text-sm">
                 <h2 class="font-semibold">WhatsApp Cloud API</h2>
@@ -98,8 +126,59 @@ async function addLead(p: Place) {
             <div class="card text-sm"><h2 class="font-semibold">Meta Ads</h2><p>No conectado · {{ s.meta_ads.note }}</p></div>
         </div>
 
+        <div v-if="can('prospecting.places')" class="card space-y-3 text-sm">
+            <div>
+                <h2 class="font-semibold">Búsquedas automáticas de comercios</h2>
+                <p class="text-xs text-slate-500">
+                    Cada búsqueda corre sola según su frecuencia (todos los días a las 07:00 se ejecutan las que vencieron) y da de alta los comercios nuevos en
+                    <RouterLink to="/prospectos" class="underline">Prospectos</RouterLink> como "por verificar", sin repetidos y sin los de la lista de no contactar.
+                    Nadie se agrega a envíos de WhatsApp sin permiso registrado.
+                    <template v-if="s.google_places.mode === 'demo'"> <b>Modo DEMO:</b> se muestra qué se encontraría, pero no se guarda nada.</template>
+                    <template v-if="s.google_places.mode === 'off'"> <b>Google Places está apagado:</b> las búsquedas quedan configuradas y empiezan a correr cuando se active.</template>
+                </p>
+            </div>
+            <form class="flex flex-wrap gap-2" @submit.prevent="addAuto">
+                <input v-model="autoForm.query" class="input max-w-56" placeholder="Rubro (ej. venta de celulares)" minlength="3" required />
+                <input v-model="autoForm.city" class="input max-w-40" placeholder="Ciudad" required />
+                <input v-model="autoForm.province" class="input max-w-40" placeholder="Provincia (opcional)" />
+                <select v-model.number="autoForm.frequency_days" class="input max-w-36">
+                    <option :value="7">Semanal</option><option :value="14">Cada 15 días</option><option :value="30">Mensual</option>
+                </select>
+                <button class="btn">Agregar búsqueda</button>
+            </form>
+            <table v-if="autoSearches.length" class="table">
+                <thead><tr><th>Búsqueda</th><th>Frecuencia</th><th>Última corrida</th><th>Resultado</th><th>Próxima</th><th></th></tr></thead>
+                <tbody>
+                    <template v-for="a in autoSearches" :key="a.id">
+                        <tr :class="a.is_active ? '' : 'opacity-50'">
+                            <td>{{ a.query }} · {{ a.city }}<span v-if="a.province">, {{ a.province }}</span></td>
+                            <td>cada {{ a.frequency_days }} días</td>
+                            <td>{{ a.last_run_at ? date(a.last_run_at) : '—' }}<span v-if="a.last_mode === 'demo'" class="ml-1 rounded bg-amber-100 px-1 text-xs text-amber-900">demo</span></td>
+                            <td>
+                                <span v-if="a.last_error" class="text-red-800">{{ a.last_error }}</span>
+                                <button v-else-if="a.last_run_at" class="underline" @click="openPreview = openPreview === a.id ? null : a.id">
+                                    {{ a.last_found }} encontrados · {{ a.last_created }} nuevos · {{ a.last_skipped }} omitidos
+                                </button>
+                                <span class="block text-xs text-slate-500">{{ a.total_created }} prospectos en total</span>
+                            </td>
+                            <td>{{ a.is_active && a.next_run_at ? date(a.next_run_at) : '—' }}</td>
+                            <td class="whitespace-nowrap">
+                                <button class="btn-secondary" @click="runAuto(a)">Correr ahora</button>
+                                <button class="btn-secondary ml-1" @click="toggleAuto(a)">{{ a.is_active ? 'Pausar' : 'Reanudar' }}</button>
+                            </td>
+                        </tr>
+                        <tr v-if="openPreview === a.id && a.last_preview?.length">
+                            <td colspan="6" class="text-xs text-slate-600">
+                                <span v-for="(p, i) in a.last_preview" :key="i" class="mr-3 inline-block">{{ p.name }}: {{ p.outcome }}</span>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
         <div v-if="can('prospecting.places') && s.google_places.mode !== 'off'" class="card space-y-2">
-            <h2 class="font-semibold">Buscar comercios (Google Places{{ s.google_places.mode === 'demo' ? ' · DEMO' : '' }})</h2>
+            <h2 class="font-semibold">Buscar comercios a mano (Google Places{{ s.google_places.mode === 'demo' ? ' · DEMO' : '' }})</h2>
             <form class="flex gap-2" @submit.prevent="search"><input v-model="query" class="input" placeholder="p. ej. venta de celulares en Córdoba" minlength="3" required /><button class="btn">Buscar</button></form>
             <p class="text-xs text-slate-500">Cada búsqueda real consume la cuota paga. Los resultados no se guardan solos: elija cuáles agregar como prospecto (queda la fuente y el place_id).</p>
             <table v-if="places" class="table text-sm">

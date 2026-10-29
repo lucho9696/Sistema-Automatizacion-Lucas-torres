@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Prospecting\AutoProspector;
 use App\Domain\Radar\MercadoLibreAuth;
 use App\Domain\Radar\TrendService;
 use App\Models\Message;
@@ -84,3 +85,13 @@ Artisan::command('app:whatsapp-prune {--days=}', function () {
 })->purpose('Aplica la política de retención de mensajes de WhatsApp (WHATSAPP_RETENTION_DAYS).');
 
 Schedule::command('app:whatsapp-prune')->dailyAt('03:00')->timezone(config('business.display_timezone'));
+
+Artisan::command('app:prospecting-run', function (AutoProspector $prospector) {
+    $count = $prospector->runDue();
+    $this->info("{$count} búsqueda(s) programada(s) ejecutada(s).");
+
+    return 0;
+})->purpose('Ejecuta las búsquedas automáticas de comercios que estén vencidas (Google Places).');
+
+// Búsquedas de comercios: cada una corre según su frecuencia; el tope mensual lo controla PlacesSearch.
+Schedule::command('app:prospecting-run')->dailyAt('07:00')->timezone(config('business.display_timezone'));

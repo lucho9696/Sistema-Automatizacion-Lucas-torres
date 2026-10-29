@@ -71,7 +71,8 @@ class LeadService
         return DB::transaction(function () use ($attrs, $data, $duplicates) {
             $lead = Lead::create($attrs + [
                 'captured_at' => $data['captured_at'] ?? now(),
-                'status' => 'nuevo',
+                // Las altas automáticas (búsquedas programadas) entran "por verificar".
+                'status' => ($data['status'] ?? null) === 'por_verificar' ? 'por_verificar' : 'nuevo',
                 'owner_id' => $data['owner_id'] ?? Auth::id(),
             ]);
             $this->auditor->record('crm.prospecto_creado', $lead, null, ['source' => $lead->source, 'source_url' => $lead->source_url]);

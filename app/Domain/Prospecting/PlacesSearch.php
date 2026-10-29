@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\Http;
  *
  * Modos (GOOGLE_PLACES_MODE): off (por defecto) | demo (resultados ficticios marcados) | live.
  * En live: FieldMask obligatorio, tope mensual de solicitudes y registro de cada consulta.
- * Los resultados no se guardan solos: una persona elige cuáles pasan a prospectos.
+ * Búsqueda manual: una persona elige qué resultados pasan a prospectos. Búsquedas
+ * programadas: ver AutoProspector (solo crean prospectos en modo live).
  */
 class PlacesSearch
 {
@@ -109,8 +110,10 @@ class PlacesSearch
 
     private function demo(string $query): array
     {
+        $key = substr(md5($query), 0, 8);
+
         return collect(range(1, 3))->map(fn ($i) => [
-            'external_id' => "demo-place-{$i}",
+            'external_id' => "demo-{$key}-{$i}",
             'business_name' => "[DEMO] Comercio ficticio {$i} ({$query})",
             'address' => 'Dirección ficticia, Córdoba',
             'phone' => null,
