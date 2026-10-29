@@ -5,9 +5,10 @@ Sistema web privado para gestionar compras/importación, inventario serializado,
 - Diagnóstico y plan por hitos: [`docs/plan-por-hitos.md`](docs/plan-por-hitos.md)
 - Decisiones técnicas: [`docs/adr/0001-arquitectura-hito-1.md`](docs/adr/0001-arquitectura-hito-1.md)
 - CRM, radar e integraciones (Hito 2): [`docs/adr/0002-crm-y-radar-hito-2.md`](docs/adr/0002-crm-y-radar-hito-2.md)
+- WhatsApp (Hito 3): [`docs/adr/0003-whatsapp-hito-3.md`](docs/adr/0003-whatsapp-hito-3.md)
 - Escenario de conciliación (datos de prueba y resultados esperados): [`docs/hito-1-escenario-conciliacion.md`](docs/hito-1-escenario-conciliacion.md)
 
-**Estado:** Hito 2 (núcleo operativo + CRM de prospectos + radar de tendencias). Mercado Libre Trends y Google Places tienen adaptador listo pero **no están conectados**: funcionan en modo demo señalizado hasta que el dueño cargue credenciales (pasos abajo). WhatsApp y Meta Ads llegan en los hitos 3–4. El sistema funciona completo sin ninguna integración.
+**Estado:** Hito 3 (núcleo operativo, CRM, radar de tendencias y asistente de WhatsApp). Mercado Libre Trends, Google Places y WhatsApp Cloud API tienen adaptador listo pero **no están conectados**: funcionan en modo demo/simulado señalizado hasta que el dueño cargue credenciales (pasos abajo). Meta Ads llega en el Hito 4. El sistema funciona completo sin ninguna integración.
 
 ## Stack
 
@@ -24,6 +25,7 @@ app/Domain/Crm         LeadService (estados, consentimiento, fusión, supresión
 app/Domain/Radar       TrendService, CandidateScorer, DemoTrendProvider, MercadoLibreTrendsProvider, MercadoLibreAuth
 app/Domain/Prospecting PlacesSearch (Google Places, apagado por defecto)
 app/Domain/Integrations SyncRunRecorder, IntegrationException
+app/Domain/Messaging   MessagingProvider (simulado / WhatsApp Cloud API), WhatsAppWebhook, SalesAssistant (bot), CatalogLookup, BotQuoteService, ConversationService
 app/Support            Money (decimal exacto, brick/math), Phone, BusinessDate
 resources/js           SPA Vue 3 + TS
 ```
@@ -55,7 +57,7 @@ php artisan db:seed --class=DemoSeeder     # usuarios demo@example.com / vendedo
 ## Validación
 
 ```bash
-php artisan test          # 51 pruebas contra PostgreSQL (base ventas_test, ver phpunit.xml)
+php artisan test          # 66 pruebas contra PostgreSQL (base ventas_test, ver phpunit.xml)
 vendor/bin/pint --test    # estilo PHP
 npm run typecheck         # vue-tsc
 npm run build             # build de producción del frontend
@@ -88,6 +90,19 @@ Hito 2 (todas opcionales; sin ellas el radar corre en demo y Places queda apagad
 | `GOOGLE_PLACES_FIELD_MASK` | id, nombre, dirección, teléfono, web, link Maps | Define el costo por solicitud |
 | `GOOGLE_PLACES_MONTHLY_REQUEST_LIMIT` | `0` | Tope mensual; 0 bloquea |
 
+Hito 3 (WhatsApp; sin ellas queda en modo simulado):
+
+| Variable | Default | Uso |
+|---|---|---|
+| `WHATSAPP_MODE` | `simulado` | `simulado` (no envía nada) o `cloud` |
+| `WHATSAPP_PHONE_NUMBER_ID` | vacío | ID del número en la app de Meta |
+| `WHATSAPP_ACCESS_TOKEN` | vacío | Token de usuario del sistema. **Secreto** |
+| `WHATSAPP_APP_SECRET` | vacío | Valida la firma del webhook. **Secreto** |
+| `WHATSAPP_VERIFY_TOKEN` | vacío | Verificación del webhook. **Secreto** |
+| `WHATSAPP_GRAPH_VERSION` | `v23.0` | Versión de la Graph API |
+| `WHATSAPP_QUOTE_VALID_HOURS` | `24` | Vigencia de las cotizaciones del bot |
+| `WHATSAPP_RETENTION_DAYS` | `365` | Días que se guarda el contenido de los mensajes |
+
 Nunca commitear `.env`. Los tokens OAuth de Mercado Libre se guardan cifrados en la base, no en `.env`.
 
 ## Activar Mercado Libre Trends
@@ -97,6 +112,10 @@ Nunca commitear `.env`. Los tokens OAuth de Mercado Libre se guardan cifrados en
 3. Entrar como admin a **Integraciones → Conectar Mercado Libre** y autorizar. Sin navegador: `php artisan app:ml-connect` muestra la URL y luego `php artisan app:ml-connect <code>`.
 4. Poner `TRENDS_PROVIDER=mercadolibre` y probar con **Radar → Sincronizar** o `php artisan app:trends-sync`. El resultado (o el error, sin secretos) queda en Integraciones → últimas corridas.
 5. Para la corrida semanal (lunes 08:00) agregar el cron `* * * * * cd /ruta && php artisan schedule:run`.
+
+## Probar y activar WhatsApp
+
+En modo simulado, **WhatsApp → Simular mensaje de un cliente** (admin) pasa el mensaje por el mismo circuito que el webhook real: el bot responde con precios y stock del catálogo, arma cotizaciones y, cuando el cliente escribe CONFIRMO, deja un pedido para validar en la bandeja. Para conectar el número real del negocio seguí los pasos de [ADR 0003](docs/adr/0003-whatsapp-hito-3.md#activación-en-producción-requiere-la-cuenta-del-cliente). En producción hace falta el worker de colas: `php artisan queue:work`.
 
 ## Activar Google Places (opcional, genera cargos)
 
@@ -130,12 +149,13 @@ Todas bajo `/api`, autenticadas con sesión Sanctum (SPA) o token Bearer.
 | Finanzas | `GET dashboard?from&to`, `GET expense-categories`, `GET/POST expenses`, `POST expenses/{id}/pay|void`, `GET/POST cash`, `GET audit-logs` |
 | Prospectos | `GET/POST leads`, `GET leads/pipeline`, `GET/PATCH leads/{id}`, `POST leads/{id}/status|activities|consents|merge|convert|erase`, `POST leads/import` (`dry_run`), `GET leads/outreach-list?channel=&format=csv`, `POST suppressions` |
 | Radar | `GET trends/candidates`, `GET/PATCH trends/candidates/{id}`, `POST trends/candidates/{id}/suppliers`, `POST trends/signals`, `POST trends/sync` |
+| WhatsApp | `GET/POST webhooks/whatsapp` (público, firmado), `GET whatsapp/status`, `GET whatsapp/conversations[/{id}]`, `POST whatsapp/conversations/{id}/messages|template|handoff|resume|attended`, `POST whatsapp/quotes/{id}/order|reject`, `GET/POST/PATCH whatsapp/faqs`, `POST whatsapp/simulate` |
 | Integraciones | `GET integrations/status`, `GET integrations/mercadolibre/authorize`, `GET prospecting/places/status`, `POST prospecting/places/search` |
 | CSV | `GET exports/{ventas|cobros|gastos|caja|stock}?from&to` |
 
 ## Limitaciones
 
-Ver la sección "Consecuencias y límites" del ADR 0001: recepción de compras en un paso, devolución total, sin cuentas por pagar a proveedores, sin vencimiento automático de reservas, numeración con posibles saltos, sin cuentas por pagar a proveedores. Hito 2: ver "Límites conocidos" del ADR 0002 (CSV sin campos multilínea, pipeline sin arrastrar y soltar, fusión manual, Mercado Libre probado solo con respuestas simuladas).
+Ver la sección "Consecuencias y límites" del ADR 0001: recepción de compras en un paso, devolución total, sin cuentas por pagar a proveedores, sin vencimiento automático de reservas, numeración con posibles saltos, sin cuentas por pagar a proveedores. Hito 2 y 3: ver "Límites conocidos" de los ADR 0002 y 0003 (CSV sin campos multilínea, pipeline sin arrastrar y soltar, fusión manual, Mercado Libre y WhatsApp probados solo con respuestas simuladas).
 
 ## Despliegue (resumen)
 

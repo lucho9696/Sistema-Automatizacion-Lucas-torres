@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Domain\Messaging\MessagingProvider;
+use App\Domain\Messaging\SimulatedMessagingProvider;
+use App\Domain\Messaging\WhatsAppCloudProvider;
 use App\Enums\Role;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -39,11 +42,17 @@ class AppServiceProvider extends ServiceProvider
         'radar.manage' => [Role::Admin, Role::Analista],
         'integrations.manage' => [Role::Admin],
         'prospecting.places' => [Role::Admin],
+        // Las conversaciones tienen datos personales: el analista no las ve.
+        'whatsapp.view' => [Role::Admin, Role::Vendedor],
+        'whatsapp.reply' => [Role::Admin, Role::Vendedor],
+        'whatsapp.manage' => [Role::Admin],
     ];
 
     public function register(): void
     {
-        //
+        $this->app->bind(MessagingProvider::class, fn () => config('integrations.whatsapp.mode') === 'cloud'
+            ? new WhatsAppCloudProvider
+            : new SimulatedMessagingProvider);
     }
 
     public function boot(): void

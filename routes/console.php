@@ -2,7 +2,9 @@
 
 use App\Domain\Radar\MercadoLibreAuth;
 use App\Domain\Radar\TrendService;
+use App\Models\Message;
 use App\Models\User;
+use App\Models\WebhookEvent;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schedule;
@@ -64,3 +66,21 @@ Artisan::command('app:ml-connect {code?}', function (MercadoLibreAuth $auth) {
 
 // Tendencias: Mercado Libre actualiza semanalmente. Requiere cron con `php artisan schedule:run`.
 Schedule::command('app:trends-sync')->weeklyOn(1, '08:00')->timezone(config('business.display_timezone'));
+
+Artisan::command('app:whatsapp-prune {--days=}', function () {
+    $days = (int) ($this->option('days') ?: config('integrations.whatsapp.retention_days'));
+    if ($days < 1) {
+        $this->error('La retención debe ser de al menos 1 día.');
+
+        return 1;
+    }
+    // Se borra el contenido, no el registro: quedan fechas, estados y la relación con cotizaciones/ventas.
+    $count = Message::whereNull('redacted_at')->where('created_at', '<', now()->subDays($days))
+        ->update(['body' => null, 'sources' => null, 'redacted_at' => now()]);
+    WebhookEvent::whereNotNull('processed_at')->where('received_at', '<', now()->subDays($days))->update(['payload' => '{}']);
+    $this->info("{$count} mensajes con más de {$days} días quedaron sin contenido.");
+
+    return 0;
+})->purpose('Aplica la política de retención de mensajes de WhatsApp (WHATSAPP_RETENTION_DAYS).');
+
+Schedule::command('app:whatsapp-prune')->dailyAt('03:00')->timezone(config('business.display_timezone'));

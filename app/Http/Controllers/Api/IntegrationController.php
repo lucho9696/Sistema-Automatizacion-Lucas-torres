@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Domain\Messaging\WhatsAppCloudProvider;
 use App\Domain\Prospecting\PlacesSearch;
 use App\Domain\Radar\MercadoLibreAuth;
 use App\Http\Controllers\Controller;
 use App\Models\SyncRun;
+use App\Models\WebhookEvent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -29,7 +31,13 @@ class IntegrationController extends Controller
                 'last_success_at' => $lastOk('mercadolibre_trends'),
             ],
             'google_places' => PlacesSearch::status() + ['last_run' => $last('google_places')],
-            'whatsapp' => ['mode' => 'no_conectado', 'note' => 'Hito 3'],
+            'whatsapp' => [
+                'mode' => config('integrations.whatsapp.mode') === 'cloud' ? 'cloud' : 'simulado',
+                'missing' => WhatsAppCloudProvider::missingConfig(),
+                'webhook_url' => url('/api/webhooks/whatsapp'),
+                'last_event_at' => WebhookEvent::where('provider', 'whatsapp')->where('simulated', false)->max('received_at'),
+                'failed_events' => WebhookEvent::where('provider', 'whatsapp')->whereNull('processed_at')->whereNotNull('error')->count(),
+            ],
             'meta_ads' => ['mode' => 'no_conectado', 'note' => 'Hito 4'],
         ];
     }

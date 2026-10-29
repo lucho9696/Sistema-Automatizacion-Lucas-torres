@@ -27,7 +27,7 @@ Fuera del costo de desarrollo y sujeto a aprobación/credenciales del cliente: W
 | Mercado Libre Trends (MLA) | 2 | Gratis (requiere app y OAuth) | App en developers.mercadolibre.com.ar, `client_id/secret` | Adaptador listo; no conectada (modo demo) |
 | Google Trends API | — | Alfa, acceso limitado | No es requisito del MVP; solo enlaces | No se integra |
 | Google Places (Text Search) | 2 (opcional) | **Pago** por campos (FieldMask) | Proyecto GCP, facturación, cuotas y alertas aprobadas | Adaptador listo; apagada por defecto |
-| WhatsApp Cloud API | 3 | Pago por conversación/plantilla según tarifas vigentes | Cuenta Meta Business del cliente, número, webhook HTTPS, token del sistema | No conectada |
+| WhatsApp Cloud API | 3 | Pago por conversación/plantilla según tarifas vigentes | Cuenta Meta Business del cliente, número, webhook HTTPS, token del sistema | Adaptador listo; modo simulado |
 | Meta Marketing API (Insights) | 4 | Gratis (permisos `ads_read`) | OAuth del dueño de la cuenta publicitaria | No conectada; fallback: gasto manual/CSV |
 | Proveedor de IA | opcional | Pago | Aprobación explícita y tope mensual | No incluido |
 
@@ -40,7 +40,7 @@ Ninguna integración es necesaria para operar el núcleo: ventas, cobros, gastos
 | 0 | Auditoría, decisiones (ADR 0001), alcance, inventario de APIs | ✅ |
 | 1 | Núcleo operativo: auth/roles, catálogo, compras/recepción, costo de destino, inventario, ventas/cotizaciones, cobros, gastos, caja, clientes, dashboard, CSV, auditoría, idempotencia | ✅ API + UI (ver límites en ADR 0001) |
 | 2 | CRM de prospectos (estados, actividades, consentimiento, supresión, dedupe), importación CSV, radar con Mercado Libre Trends (adaptador + modo demo señalizado), score explicable, enlaces de proveedores; Google Places opcional tras feature flag | ✅ API + UI (ver ADR 0002); Mercado Libre y Places sin conectar hasta tener credenciales |
-| 3 | `MessagingProvider` + adaptador WhatsApp Cloud API (webhook con verificación de firma, dedupe por ID externo, cola), bandeja, FAQ desde la base, cotización → pedido pendiente, derivación humana con pausa del bot, opt-out. Modo simulado por defecto | Pendiente |
+| 3 | `MessagingProvider` + adaptador WhatsApp Cloud API (webhook con verificación de firma, dedupe por ID externo, cola), bandeja, FAQ desde la base, cotización → pedido pendiente, derivación humana con pausa del bot, opt-out. Modo simulado por defecto | ✅ API + UI (ver ADR 0003); Cloud API sin conectar hasta tener la cuenta del cliente |
 | 4 | Meta Ads Insights idempotente, scheduler, colas, reintentos, alertas (cobros vencidos, stock bajo, reservas por vencer), vencimiento de reservas | Pendiente |
 | 5 | E2E, endurecimiento de permisos, backups y restauración, manual de despliegue y capacitación | Pendiente |
 

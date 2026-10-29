@@ -18,6 +18,7 @@ const routes = [
     { path: '/prospectos/:id', component: () => import('./views/LeadDetailView.vue'), meta: { ability: 'crm.manage' }, props: true },
     { path: '/radar', component: () => import('./views/RadarView.vue'), meta: { ability: 'radar.view' } },
     { path: '/radar/:id', component: () => import('./views/RadarDetailView.vue'), meta: { ability: 'radar.view' }, props: true },
+    { path: '/whatsapp', component: () => import('./views/WhatsAppView.vue'), meta: { ability: 'whatsapp.view' } },
     { path: '/integraciones', component: () => import('./views/IntegrationsView.vue'), meta: { ability: 'radar.view' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
 ];

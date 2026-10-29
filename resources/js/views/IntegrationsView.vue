@@ -10,7 +10,7 @@ interface Run { status: string; mode: string; items_count: number; error: string
 interface Status {
     mercadolibre_trends: { mode: string; connected: boolean; missing_env: string[]; last_run: Run | null; last_success_at: string | null };
     google_places: { mode: string; missing: string[]; monthly_limit: number; used_this_month: number; field_mask: string; last_run: Run | null };
-    whatsapp: { mode: string; note: string };
+    whatsapp: { mode: string; missing: string[]; webhook_url: string; last_event_at: string | null; failed_events: number };
     meta_ads: { mode: string; note: string };
 }
 interface Place { external_id: string; business_name: string; address: string | null; phone: string | null; website: string | null; source_url: string | null; lead_id: number | null }
@@ -83,7 +83,18 @@ async function addLead(p: Place) {
                 <p v-if="s.google_places.missing.length" class="text-red-800">Faltan: {{ s.google_places.missing.join(', ') }}</p>
                 <p class="text-xs text-slate-500">Campos pedidos (FieldMask): {{ s.google_places.field_mask }}</p>
             </div>
-            <div class="card text-sm"><h2 class="font-semibold">WhatsApp Cloud API</h2><p>No conectado · {{ s.whatsapp.note }}</p></div>
+            <div class="card space-y-1 text-sm">
+                <h2 class="font-semibold">WhatsApp Cloud API</h2>
+                <p v-if="s.whatsapp.mode === 'simulado'">
+                    <span class="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">Modo simulado</span>
+                    Nada sale del sistema; probá el bot desde <RouterLink to="/whatsapp" class="underline">WhatsApp</RouterLink>.
+                </p>
+                <p v-else>Modo Cloud API (envíos reales).</p>
+                <p v-if="s.whatsapp.missing.length" class="text-slate-600">Faltan para conectar: {{ s.whatsapp.missing.join(', ') }}</p>
+                <p class="text-slate-600">URL del webhook: <code class="break-all">{{ s.whatsapp.webhook_url }}</code></p>
+                <p class="text-slate-600">Último evento real: {{ s.whatsapp.last_event_at ? date(s.whatsapp.last_event_at) : 'ninguno' }}</p>
+                <p v-if="s.whatsapp.failed_events" class="text-red-700">{{ s.whatsapp.failed_events }} evento(s) del webhook fallaron (ver logs).</p>
+            </div>
             <div class="card text-sm"><h2 class="font-semibold">Meta Ads</h2><p>No conectado · {{ s.meta_ads.note }}</p></div>
         </div>
 

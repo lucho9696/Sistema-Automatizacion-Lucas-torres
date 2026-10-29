@@ -11,9 +11,15 @@ use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\RadarController;
 use App\Http\Controllers\Api\SaleController;
+use App\Http\Controllers\Api\WhatsAppController;
+use App\Http\Controllers\Api\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
+
+// Webhook público de WhatsApp Cloud API (protegido por verify token y firma HMAC, no por sesión).
+Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify'])->middleware('throttle:30,1');
+Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'receive'])->middleware('throttle:600,1');
 
 Route::middleware(['auth:sanctum', 'throttle:120,1'])->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -95,6 +101,22 @@ Route::middleware(['auth:sanctum', 'throttle:120,1'])->group(function () {
     Route::post('/trends/candidates/{candidate}/suppliers', [RadarController::class, 'storeSupplier'])->middleware('idempotent');
     Route::post('/trends/signals', [RadarController::class, 'storeSignal'])->middleware('idempotent');
     Route::post('/trends/sync', [RadarController::class, 'sync'])->middleware('throttle:6,1');
+
+    // WhatsApp
+    Route::get('/whatsapp/status', [WhatsAppController::class, 'status']);
+    Route::get('/whatsapp/conversations', [WhatsAppController::class, 'index']);
+    Route::get('/whatsapp/conversations/{conversation}', [WhatsAppController::class, 'show']);
+    Route::post('/whatsapp/conversations/{conversation}/messages', [WhatsAppController::class, 'reply'])->middleware('idempotent');
+    Route::post('/whatsapp/conversations/{conversation}/template', [WhatsAppController::class, 'template'])->middleware('idempotent');
+    Route::post('/whatsapp/conversations/{conversation}/handoff', [WhatsAppController::class, 'handoff']);
+    Route::post('/whatsapp/conversations/{conversation}/resume', [WhatsAppController::class, 'resume']);
+    Route::post('/whatsapp/conversations/{conversation}/attended', [WhatsAppController::class, 'attended']);
+    Route::post('/whatsapp/quotes/{quote}/order', [WhatsAppController::class, 'convertQuote'])->middleware('idempotent');
+    Route::post('/whatsapp/quotes/{quote}/reject', [WhatsAppController::class, 'closeQuote']);
+    Route::get('/whatsapp/faqs', [WhatsAppController::class, 'faqs']);
+    Route::post('/whatsapp/faqs', [WhatsAppController::class, 'storeFaq']);
+    Route::patch('/whatsapp/faqs/{faq}', [WhatsAppController::class, 'updateFaq']);
+    Route::post('/whatsapp/simulate', [WhatsAppController::class, 'simulate'])->middleware('throttle:60,1');
 
     // Integraciones
     Route::get('/integrations/status', [IntegrationController::class, 'status']);

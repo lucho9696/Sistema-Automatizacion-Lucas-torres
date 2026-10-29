@@ -13,6 +13,7 @@ const links = computed(() =>
         { to: '/compras', label: 'Compras', ability: 'purchases.manage' },
         { to: '/clientes', label: 'Clientes', ability: 'customers.manage' },
         { to: '/prospectos', label: 'Prospectos', ability: 'crm.manage' },
+        { to: '/whatsapp', label: 'WhatsApp', ability: 'whatsapp.view' },
         { to: '/radar', label: 'Radar', ability: 'radar.view' },
         { to: '/gastos', label: 'Gastos', ability: 'finance.manage' },
         { to: '/caja', label: 'Caja', ability: 'finance.manage' },

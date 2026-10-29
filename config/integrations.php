@@ -48,6 +48,32 @@ return [
         'TikTok Creative Center' => 'https://ads.tiktok.com/business/creativecenter/inspiration/popular/hashtag/pc/es?period=30&region=AR',
     ],
 
+    'whatsapp' => [
+        // simulado (por defecto: nada sale del sistema) | cloud (WhatsApp Business Platform Cloud API oficial)
+        'mode' => env('WHATSAPP_MODE', 'simulado'),
+        'graph_url' => env('WHATSAPP_GRAPH_URL', 'https://graph.facebook.com'),
+        // Versión de la Graph API: revisar la vigente en developers.facebook.com antes de producción.
+        'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v23.0'),
+        'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'access_token' => env('WHATSAPP_ACCESS_TOKEN'),       // token de usuario del sistema (secreto)
+        'app_secret' => env('WHATSAPP_APP_SECRET'),           // firma X-Hub-Signature-256 (secreto)
+        'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),       // verificación GET del webhook (secreto)
+        'timeout' => 10,
+        // Vigencia de las cotizaciones del bot y retención de mensajes.
+        'quote_valid_hours' => (int) env('WHATSAPP_QUOTE_VALID_HOURS', 24),
+        'retention_days' => (int) env('WHATSAPP_RETENTION_DAYS', 365),
+        // Mensajes sin entender seguidos antes de derivar a una persona.
+        'max_misunderstood' => 2,
+        // Palabras (sin acentos) que derivan a una persona y pausan el bot.
+        'handoff_keywords' => ['humano', 'persona', 'asesor', 'vendedor', 'operador', 'hablar con alguien', 'reclamo', 'queja',
+            'factura', 'afip', 'arca', 'monotributo', 'abogado', 'denuncia', 'descuento', 'mejor precio', 'rebaja', 'negociar'],
+        // Temas que se responden solo si hay una FAQ cargada; si no, se deriva (no se promete nada).
+        'sensitive_topics' => ['garantia', 'devolucion', 'cambio', 'envio', 'envios', 'entrega', 'original', 'autentic', 'importacion'],
+        'opt_out_keywords' => ['baja', 'stop', 'no me escriban', 'no quiero recibir', 'dejen de escribir', 'no me manden'],
+        'accept_keywords' => ['confirmo', 'acepto'],
+        'reject_keywords' => ['no confirmo', 'no acepto', 'cancelar', 'cancelo', 'rechazo'],
+    ],
+
     // Checklist de validación de proveedores de celulares (especificación §7.5).
     'phone_supplier_checklist' => [
         'IMEI/serie de cada unidad informados antes del pago y verificables',
